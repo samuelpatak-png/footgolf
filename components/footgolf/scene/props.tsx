@@ -2,8 +2,9 @@
 
 import { useMemo } from "react";
 import * as THREE from "three";
-import type { ObstacleDef } from "../lib/types";
+import type { ObstacleDef, ObstacleType } from "../lib/types";
 import type { HeightSampler } from "../lib/heightmap";
+import { ShadowBlob } from "./shadow-blob";
 
 /**
  * Procedural course dressing: trees, rocks, bushes, reeds and distance
@@ -425,6 +426,17 @@ function renderObstacle(obstacle: ObstacleDef, seed: number, kit: PropKit): JSX.
   }
 }
 
+/** Base ground-shadow radius (before the obstacle's own `scale`) per type. */
+const SHADOW_RADIUS: Record<ObstacleType, number> = {
+  pineTree: 0.55,
+  roundTree: 0.6,
+  rock: 0.4,
+  rockCluster: 0.7,
+  bush: 0.3,
+  reeds: 0.35,
+  postMarker: 0.12,
+};
+
 interface PropInstanceProps {
   obstacle: ObstacleDef;
   index: number;
@@ -441,6 +453,7 @@ function PropInstance({ obstacle, index, heightAt, kit }: PropInstanceProps): JS
 
   return (
     <group position={[x, y, z]} rotation={[0, rotationY, 0]} scale={scale}>
+      <ShadowBlob radius={SHADOW_RADIUS[obstacle.type]} opacity={0.4} />
       {renderObstacle(obstacle, seed, kit)}
     </group>
   );

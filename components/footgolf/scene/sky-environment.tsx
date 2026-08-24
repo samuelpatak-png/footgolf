@@ -3,8 +3,8 @@
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
-import { Sky } from "@react-three/drei";
-import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
+import { EffectComposer, Bloom, Vignette, HueSaturation, BrightnessContrast } from "@react-three/postprocessing";
+import { createSunGlowTexture } from "../lib/textures";
 
 interface SkyEnvironmentProps {
   bounds: { width: number; depth: number };
@@ -15,17 +15,42 @@ const SUN_ELEVATION_DEG = 45;
 const SUN_AZIMUTH_DEG = 130;
 const SUN_DISTANCE = 300;
 
-// Clean, crisp midday-ish blue (kept away from the hazy/orange end of the range).
-const SKY_TURBIDITY = 3;
-const SKY_RAYLEIGH = 1.2;
-const SKY_MIE_COEFFICIENT = 0.004;
-const SKY_MIE_DIRECTIONAL_G = 0.8;
-
 // Close to the pale blue a clear sky fades to near the horizon, so distant
 // terrain dissolves into the backdrop instead of showing a hard edge.
 const FOG_COLOR = "#cfe3ef";
 
+// A stylized (not physically-based) gradient dome: a saturated zenith blue
+// easing into the same pale tone the fog uses at the horizon, so the sky and
+// the point where the terrain fades out read as one continuous surface.
+const SKY_ZENITH_COLOR = "#1f6fc4";
+const SKY_HORIZON_COLOR = FOG_COLOR;
+const SKY_GROUND_COLOR = "#4b5a4f";
+const SKY_RADIUS = SUN_DISTANCE * 1.4;
+
 const CLOUD_COUNT = 4;
+
+const skyVertexShader = /* glsl */ `
+  varying vec3 vWorldPosition;
+  void main() {
+    vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+    vWorldPosition = worldPosition.xyz;
+    gl_Position = projectionMatrix * viewMatrix * worldPosition;
+  }
+`;
+
+const skyFragmentShader = /* glsl */ `
+  uniform vec3 topColor;
+  uniform vec3 horizonColor;
+  uniform vec3 groundColor;
+  varying vec3 vWorldPosition;
+  void main() {
+    float h = normalize(vWorldPosition).y;
+    vec3 col = h >= 0.0
+      ? mix(horizonColor, topColor, pow(h, 0.55))
+      : mix(horizonColor, groundColor, pow(-h, 0.4));
+    gl_FragColor = vec4(col, 1.0);
+  }
+`;
 
 /**
  * Converts elevation/azimuth (degrees) into a world-space direction vector,
@@ -148,21 +173,51 @@ export function SkyEnvironment({ bounds }: SkyEnvironmentProps): JSX.Element {
     []
   );
 
+  const skyUniforms = useMemo(
+    () => ({
+      topColor: { value: new THREE.Color(SKY_ZENITH_COLOR) },
+      horizonColor: { value: new THREE.Color(SKY_HORIZON_COLOR) },
+      groundColor: { value: new THREE.Color(SKY_GROUND_COLOR) },
+    }),
+    []
+  );
+
+  const sunGlowTexture = useMemo(() => createSunGlowTexture(), []);
+  const sunSpritePosition = useMemo(() => sunPosition.clone().multiplyScalar(0.97), [sunPosition]);
+
   return (
     <>
-      <Sky
-        sunPosition={sunPosition}
-        turbidity={SKY_TURBIDITY}
-        rayleigh={SKY_RAYLEIGH}
-        mieCoefficient={SKY_MIE_COEFFICIENT}
-        mieDirectionalG={SKY_MIE_DIRECTIONAL_G}
-      />
+      {/* Stylized gradient sky dome, painted from the inside — a deliberate
+          art-directed look rather than a physically-based atmosphere, so it
+          stays visually consistent with the flat-shaded/procedural props. */}
+      <mesh renderOrder={-2}>
+        <sphereGeometry args={[SKY_RADIUS, 24, 16]} />
+        <shaderMaterial
+          side={THREE.BackSide}
+          depthWrite={false}
+          fog={false}
+          uniforms={skyUniforms}
+          vertexShader={skyVertexShader}
+          fragmentShader={skyFragmentShader}
+        />
+      </mesh>
+
+      {/* Visible sun disc so the light rig reads as coming from somewhere. */}
+      <sprite position={sunSpritePosition} scale={[38, 38, 1]} renderOrder={-1}>
+        <spriteMaterial
+          map={sunGlowTexture}
+          transparent
+          depthWrite={false}
+          fog={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </sprite>
 
       <fog attach="fog" args={[FOG_COLOR, fogNear, fogFar]} />
 
       <directionalLight
         position={sunPosition}
-        intensity={3}
+        intensity={3.3}
         color="#fff6e8"
         castShadow
         shadow-mapSize={[2048, 2048]}
@@ -175,8 +230,8 @@ export function SkyEnvironment({ bounds }: SkyEnvironmentProps): JSX.Element {
         shadow-bias={-0.0015}
       />
 
-      <hemisphereLight color="#bfd9f5" groundColor="#5a4a34" intensity={0.55} />
-      <ambientLight intensity={0.12} />
+      <hemisphereLight color="#bfe0f7" groundColor="#4a5a3f" intensity={0.5} />
+      <ambientLight intensity={0.1} />
 
       <group>
         {cloudConfigs.map((config, i) => (
@@ -185,7 +240,9 @@ export function SkyEnvironment({ bounds }: SkyEnvironmentProps): JSX.Element {
       </group>
 
       <EffectComposer multisampling={4}>
-        <Bloom luminanceThreshold={0.9} intensity={0.35} mipmapBlur />
+        <Bloom luminanceThreshold={0.88} intensity={0.4} mipmapBlur />
+        <HueSaturation saturation={0.12} />
+        <BrightnessContrast brightness={0} contrast={0.08} />
         <Vignette eskil={false} offset={0.15} darkness={0.5} />
       </EffectComposer>
     </>

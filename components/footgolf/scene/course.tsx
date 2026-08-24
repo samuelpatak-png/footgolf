@@ -16,6 +16,7 @@ import { PropsField } from "./props";
 import { FlagAndCup } from "./flag";
 import { SkyEnvironment } from "./sky-environment";
 import { ParticleField, type BurstSpec, type BurstType } from "./particles";
+import { ShadowBlob } from "./shadow-blob";
 import { isInWaterHazard, surfaceAt, SURFACE_DAMPING } from "../lib/surface-map";
 import { useGameStore, type LoftMode } from "../lib/store";
 import { playBounce, playHoleIn, playKick, playSplash } from "../lib/audio";
@@ -54,6 +55,8 @@ export function Course({ hole }: CourseProps) {
   const groundedFrames = useRef(0);
   const holedRef = useRef(false);
   const wasGroundedRef = useRef(true);
+  const ballShadowRef = useRef<THREE.Mesh>(null);
+  const mapUpdateFrame = useRef(0);
 
   const teeY = heightAt(hole.tee[0], hole.tee[1]) + BALL_RADIUS + 0.05;
   const lastRestPosition = useRef(new THREE.Vector3(hole.tee[0], teeY, hole.tee[1]));
@@ -65,6 +68,7 @@ export function Course({ hole }: CourseProps) {
 
   useEffect(() => {
     rollWind();
+    useGameStore.getState().setBallMapPos(hole.tee[0], hole.tee[1]);
     // Only ever once per hole mount — Course remounts fresh via `key={hole.id}`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -117,6 +121,7 @@ export function Course({ hole }: CourseProps) {
     useGameStore.getState().addStroke();
     useGameStore.getState().setCanShoot(false);
     useGameStore.getState().setBallMoving(true);
+    useGameStore.getState().triggerShake(power);
     settledFrames.current = 0;
     groundedFrames.current = 0;
     playKick(power);
@@ -134,6 +139,22 @@ export function Course({ hole }: CourseProps) {
 
     const groundY = heightAt(t.x, t.z);
     const grounded = t.y - groundY < BALL_RADIUS + 0.3;
+
+    const shadowMesh = ballShadowRef.current;
+    if (shadowMesh) {
+      shadowMesh.position.set(t.x, groundY + 0.01, t.z);
+      const heightAbove = Math.max(0, t.y - groundY);
+      const k = Math.min(1, heightAbove / 4);
+      const mat = shadowMesh.material as THREE.MeshBasicMaterial;
+      mat.opacity = THREE.MathUtils.lerp(0.5, 0.12, k);
+      const s = THREE.MathUtils.lerp(1, 0.55, k);
+      shadowMesh.scale.set(s, s, 1);
+    }
+
+    mapUpdateFrame.current += 1;
+    if (mapUpdateFrame.current % 6 === 0) {
+      useGameStore.getState().setBallMapPos(t.x, t.z);
+    }
 
     if (grounded) {
       const surface = surfaceAt(hole.surfaceZones, t.x, t.z);
@@ -227,6 +248,7 @@ export function Course({ hole }: CourseProps) {
       ))}
       <PropsField obstacles={hole.obstacles} heightAt={heightAt} />
       <FlagAndCup position={hole.pin} heightAt={heightAt} cupRadius={hole.cupRadius} />
+      <ShadowBlob ref={ballShadowRef} radius={BALL_RADIUS * 1.8} opacity={0.5} y={0} />
       <Ball ref={ballRef} startPosition={startPosition} />
       <CameraRig ballRef={ballRef} heightAt={heightAt} initialYaw={hole.startYaw} />
       <AimIndicator ballRef={ballRef} heightAt={heightAt} />

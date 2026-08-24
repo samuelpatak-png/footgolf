@@ -53,6 +53,16 @@ interface GameState {
 
   muted: boolean;
   toggleMuted: () => void;
+
+  /** Ball's live world XZ, throttled from Course's physics loop — feeds the HUD minimap. */
+  ballMapX: number;
+  ballMapZ: number;
+  setBallMapPos: (x: number, z: number) => void;
+
+  /** Bumped on every kick so CameraRig can react with a brief decaying shake. */
+  shakeSeed: number;
+  shakeStrength: number;
+  triggerShake: (strength: number) => void;
 }
 
 const MUTE_STORAGE_KEY = "footgolf-muted";
@@ -88,6 +98,12 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   holeAttempt: 0,
   muted: readInitialMuted(),
+
+  ballMapX: 0,
+  ballMapZ: 0,
+
+  shakeSeed: 0,
+  shakeStrength: 0,
 
   startGame: () =>
     set({
@@ -174,4 +190,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       }
       return { muted: next };
     }),
+
+  setBallMapPos: (x, z) => set({ ballMapX: x, ballMapZ: z }),
+
+  triggerShake: (strength) => set((s) => ({ shakeSeed: s.shakeSeed + 1, shakeStrength: strength })),
 }));

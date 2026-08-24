@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { playUiClick } from "../lib/audio";
 import { useGameStore, type LoftMode } from "../lib/store";
 import type { HoleDefinition } from "../lib/types";
+import { Minimap } from "./minimap";
 
 interface HudProps {
   hole: HoleDefinition;
@@ -241,6 +242,8 @@ export function Hud({ hole, holeNumber, totalHoles }: HudProps): JSX.Element {
           </div>
         </div>
       )}
+
+      <Minimap hole={hole} />
 
       {/* Loft selector */}
       <div className="pointer-events-auto absolute bottom-5 right-5 z-20 flex items-center gap-1 rounded-full border border-white/15 bg-slate-950/60 p-1 shadow-lg backdrop-blur-xl">
