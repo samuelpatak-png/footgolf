@@ -1,6 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useEffect, useState } from "react";
+import { GameCrashFallback } from "./game-crash-fallback";
+import { GameErrorBoundary } from "./game-error-boundary";
 
 const FootgolfGame = dynamic(() => import("./game"), {
   ssr: false,
@@ -19,6 +22,34 @@ function LoadingScreen() {
   );
 }
 
+/**
+ * Cheap synchronous probe: can this browser/device create a WebGL context
+ * at all? Checked before the (heavy) game bundle even mounts, so a device
+ * without WebGL gets an instant, actionable message instead of downloading
+ * three.js/Rapier only to have THREE.WebGLRenderer throw on construction.
+ */
+function detectWebGL(): boolean {
+  try {
+    const canvas = document.createElement("canvas");
+    return !!(canvas.getContext("webgl2") || canvas.getContext("webgl") || canvas.getContext("experimental-webgl"));
+  } catch {
+    return false;
+  }
+}
+
 export function FootgolfLoader() {
-  return <FootgolfGame />;
+  const [webglOk, setWebglOk] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    setWebglOk(detectWebGL());
+  }, []);
+
+  if (webglOk === null) return <LoadingScreen />;
+  if (!webglOk) return <GameCrashFallback error={new Error("WebGL context could not be created")} />;
+
+  return (
+    <GameErrorBoundary>
+      <FootgolfGame />
+    </GameErrorBoundary>
+  );
 }
