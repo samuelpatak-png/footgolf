@@ -103,7 +103,15 @@ export function Terrain({ hole, heightAt }: TerrainProps) {
     // whenever this array's reference changes, so a fresh inline literal on
     // every render would tear down and rebuild the ground collider on every
     // re-render of this component.
-    const trimeshArgs: [Float32Array, Uint32Array] = [positions, indices];
+    //
+    // The 3rd element is Rapier's TriMeshFlags.ORIENTED (value 8): it makes
+    // Parry compute smooth pseudo-normals for shared vertices/edges instead
+    // of a raw per-triangle normal, which is what stops a fast-rolling ball
+    // from picking up a spurious sideways kick every time it crosses from
+    // one triangle of the ground mesh onto the next. @react-three/rapier's
+    // TrimeshArgs type only declares [vertices, indices], but the underlying
+    // Rapier binding accepts this 3rd flags argument too.
+    const trimeshArgs = [positions, indices, 8] as unknown as [Float32Array, Uint32Array];
 
     return { geometry, trimeshArgs };
   }, [hole, heightAt, width, depth]);

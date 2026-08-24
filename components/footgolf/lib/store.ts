@@ -41,6 +41,11 @@ interface GameState {
   setLoft: (loft: LoftMode) => void;
   completeHole: (holeId: number, name: string, par: number) => void;
   advanceHole: (totalHoles: number) => void;
+
+  /** Per-hole wind, rerolled whenever a hole (re)mounts. */
+  windAngle: number;
+  windStrength: number;
+  rollWind: () => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -59,6 +64,9 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   toast: null,
   toastId: 0,
+
+  windAngle: 0,
+  windStrength: 0,
 
   startGame: () =>
     set({
@@ -115,8 +123,11 @@ export const useGameStore = create<GameState>((set, get) => ({
       });
     }
   },
-}));
 
-if (typeof window !== "undefined") {
-  (window as unknown as { __gameStore: typeof useGameStore }).__gameStore = useGameStore;
-}
+  rollWind: () =>
+    set({
+      windAngle: Math.random() * Math.PI * 2,
+      // Skewed toward calmer wind (sqrt) so a strong gust is a notable event, not the norm.
+      windStrength: Math.sqrt(Math.random()),
+    }),
+}));

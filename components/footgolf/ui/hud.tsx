@@ -45,6 +45,8 @@ export function Hud({ hole, holeNumber, totalHoles }: HudProps): JSX.Element {
   const power = useGameStore((s) => s.power);
   const isPulling = useGameStore((s) => s.isPulling);
   const goToMenu = useGameStore((s) => s.goToMenu);
+  const windAngle = useGameStore((s) => s.windAngle);
+  const windStrength = useGameStore((s) => s.windStrength);
 
   const [toastText, setToastText] = useState<string | null>(null);
   const [toastVisible, setToastVisible] = useState(false);
@@ -82,6 +84,35 @@ export function Hud({ hole, holeNumber, totalHoles }: HudProps): JSX.Element {
               <p className="text-base font-extrabold text-amber-300 sm:text-lg">{strokes}</p>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Wind */}
+      <div className="absolute left-4 top-[4.7rem] z-20 sm:left-5 sm:top-[5.2rem]">
+        <div className="flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/50 px-3 py-1.5 shadow-lg backdrop-blur-xl">
+          {windStrength > 0.08 ? (
+            <>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                className="h-3.5 w-3.5 shrink-0 text-sky-300"
+                style={{ transform: `rotate(${windAngle}rad)` }}
+              >
+                <path
+                  d="M12 3v18M12 3l-5 5M12 3l5 5"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <span className="text-[11px] font-semibold text-white/70">
+                Vietor {(windStrength * 8).toFixed(1)} m/s
+              </span>
+            </>
+          ) : (
+            <span className="text-[11px] font-semibold text-white/50">Bezvetrie</span>
+          )}
         </div>
       </div>
 

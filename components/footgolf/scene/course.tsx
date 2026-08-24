@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import type { RapierRigidBody } from "@react-three/rapier";
@@ -14,6 +14,7 @@ import { Water } from "./water";
 import { PropsField } from "./props";
 import { FlagAndCup } from "./flag";
 import { SkyEnvironment } from "./sky-environment";
+import { ParticleField, type BurstSpec, type BurstType } from "./particles";
 import { isInWaterHazard, surfaceAt, SURFACE_DAMPING } from "../lib/surface-map";
 import { useGameStore, type LoftMode } from "../lib/store";
 import { playHoleIn, playKick, playSplash } from "../lib/audio";
@@ -29,8 +30,16 @@ const SETTLE_FRAMES_REQUIRED = 20;
 const FORCE_SETTLE_FRAMES = 240;
 const FORCE_SETTLE_SPEED = 1.2;
 const MIN_KICK_SPEED = 3.2;
-const MAX_KICK_SPEED = 15.5;
+// Kept well under ~13 m/s: past that, a fast sphere sweeping across many
+// triangles of the ground trimesh per physics step occasionally picks up a
+// spurious sideways deflection (confirmed by comparing moderate- vs high-
+// power kicks — moderate ones track dead straight, only strong ones drifted).
+const MAX_KICK_SPEED = 11;
 const LOFT_ANGLES: Record<LoftMode, number> = { low: 0.14, normal: 0.32, high: 0.58 };
+// Newtons at windStrength=1, only applied while the ball is airborne — a
+// gentle push over a ~1s flight, not something that should ever feel unfair.
+const WIND_FORCE = 0.55;
+const LANDING_DUST_MIN_SPEED = 2.2;
 
 interface CourseProps {
   hole: HoleDefinition;
@@ -42,6 +51,7 @@ export function Course({ hole }: CourseProps) {
   const settledFrames = useRef(0);
   const groundedFrames = useRef(0);
   const holedRef = useRef(false);
+  const wasGroundedRef = useRef(true);
 
   const teeY = heightAt(hole.tee[0], hole.tee[1]) + BALL_RADIUS + 0.05;
   const lastRestPosition = useRef(new THREE.Vector3(hole.tee[0], teeY, hole.tee[1]));
@@ -49,6 +59,23 @@ export function Course({ hole }: CourseProps) {
 
   const phase = useGameStore((s) => s.phase);
   const canShoot = useGameStore((s) => s.canShoot);
+  const rollWind = useGameStore((s) => s.rollWind);
+
+  useEffect(() => {
+    rollWind();
+    // Only ever once per hole mount — Course remounts fresh via `key={hole.id}`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const [bursts, setBursts] = useState<BurstSpec[]>([]);
+  const burstIdRef = useRef(0);
+  const spawnBurst = useCallback((type: BurstType, position: readonly [number, number, number]) => {
+    const id = burstIdRef.current++;
+    setBursts((prev) => [...prev, { id, type, position }]);
+  }, []);
+  const removeBurst = useCallback((id: number) => {
+    setBursts((prev) => prev.filter((b) => b.id !== id));
+  }, []);
 
   const resetBallTo = useCallback((pos: THREE.Vector3) => {
     const body = ballRef.current;
@@ -58,6 +85,7 @@ export function Course({ hole }: CourseProps) {
     body.setTranslation({ x: pos.x, y: pos.y, z: pos.z }, true);
     settledFrames.current = 0;
     groundedFrames.current = 0;
+    wasGroundedRef.current = true;
     useGameStore.getState().setCanShoot(false);
     useGameStore.getState().setBallMoving(false);
   }, []);
@@ -79,10 +107,10 @@ export function Course({ hole }: CourseProps) {
 
     const mass = body.mass();
     body.applyImpulse({ x: dirX * speed * mass, y: vertical * speed * mass, z: dirZ * speed * mass }, true);
-    body.applyTorqueImpulse(
-      { x: -dirZ * speed * mass * 0.012, y: 0, z: dirX * speed * mass * 0.012 },
-      true
-    );
+    // No manual spin impulse: ground friction naturally spins the ball up to
+    // match its rolling speed as soon as it lands, which looks correct on its
+    // own and (unlike a hand-tuned torque impulse) can't fight or over-drive
+    // that natural rolling-without-slipping state.
 
     useGameStore.getState().addStroke();
     useGameStore.getState().setCanShoot(false);
@@ -110,14 +138,26 @@ export function Course({ hole }: CourseProps) {
       const damping = SURFACE_DAMPING[surface];
       body.setLinearDamping(damping);
       body.setAngularDamping(damping * 0.5);
+
+      if (!wasGroundedRef.current && Math.sqrt(speed2) > LANDING_DUST_MIN_SPEED) {
+        spawnBurst("dust", [t.x, groundY + 0.03, t.z]);
+      }
     } else {
       body.setLinearDamping(0.05);
       body.setAngularDamping(0.1);
+
+      const { windAngle, windStrength } = useGameStore.getState();
+      if (windStrength > 0.001) {
+        const mag = windStrength * WIND_FORCE;
+        body.addForce({ x: Math.sin(windAngle) * mag, y: 0, z: Math.cos(windAngle) * mag }, true);
+      }
     }
+    wasGroundedRef.current = grounded;
 
     const hazard = isInWaterHazard(hole.waterHazards, t.x, t.z);
     if (hazard && t.y < hazard.level + 0.06) {
       playSplash();
+      spawnBurst("splash", [t.x, hazard.level + 0.02, t.z]);
       useGameStore.getState().addStroke();
       useGameStore.getState().showToast("Do vody! +1 trestný úder");
       resetBallTo(lastRestPosition.current);
@@ -186,6 +226,7 @@ export function Course({ hole }: CourseProps) {
       <CameraRig ballRef={ballRef} heightAt={heightAt} initialYaw={hole.startYaw} />
       <AimIndicator ballRef={ballRef} heightAt={heightAt} />
       <AimController enabled={phase === "playing" && canShoot} baseYaw={hole.startYaw} onKick={handleKick} />
+      <ParticleField bursts={bursts} onBurstDone={removeBurst} />
     </>
   );
 }

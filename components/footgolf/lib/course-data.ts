@@ -18,7 +18,7 @@ export const HOLES: HoleDefinition[] = [
     baseHeight: 0,
     cupRadius: 0.4,
     terrain: [
-      { kind: "noise", amplitude: 0.12, frequency: 0.08, seed: 11 },
+      { kind: "noise", amplitude: 0.025, frequency: 0.08, seed: 11 },
       { kind: "bump", center: [3, -2], radiusX: 14, radiusZ: 16, height: 1.4 },
       { kind: "bump", center: [-6, 25], radiusX: 8, radiusZ: 8, height: -0.4 },
       { kind: "slope", dir: [0, 1], strength: 0.006 },
@@ -56,7 +56,7 @@ export const HOLES: HoleDefinition[] = [
     baseHeight: 0,
     cupRadius: 0.4,
     terrain: [
-      { kind: "noise", amplitude: 0.15, frequency: 0.06, seed: 42 },
+      { kind: "noise", amplitude: 0.03, frequency: 0.06, seed: 42 },
       { kind: "bump", center: [-2, 4], radiusX: 20, radiusZ: 22, height: 5.5 },
       { kind: "bump", center: [6, -6], radiusX: 16, radiusZ: 14, height: -2.2 },
       { kind: "slope", dir: [1, 1], strength: 0.005 },
@@ -101,7 +101,7 @@ export const HOLES: HoleDefinition[] = [
     baseHeight: 0,
     cupRadius: 0.45,
     terrain: [
-      { kind: "noise", amplitude: 0.18, frequency: 0.05, seed: 7 },
+      { kind: "noise", amplitude: 0.035, frequency: 0.05, seed: 7 },
       { kind: "bump", center: [0, -66], radiusX: 10, radiusZ: 10, height: 2.0 },
       { kind: "ridge", from: [-8, -30], to: [6, 10], width: 14, height: 4.5 },
       { kind: "bump", center: [14, 30], radiusX: 14, radiusZ: 18, height: 3.2 },
