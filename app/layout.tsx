@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://footgolf-nine.vercel.app"),
   title: "Footgolf",
   description:
     "Zahraj si footgolf priamo v prehliadači — realistická fyzika, kopce, prekážky a vodné jazerá na troch jamkách.",
