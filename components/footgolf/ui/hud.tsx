@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { playUiClick } from "../lib/audio";
 import { useGameStore, type LoftMode } from "../lib/store";
 import type { HoleDefinition } from "../lib/types";
 
@@ -47,6 +48,9 @@ export function Hud({ hole, holeNumber, totalHoles }: HudProps): JSX.Element {
   const goToMenu = useGameStore((s) => s.goToMenu);
   const windAngle = useGameStore((s) => s.windAngle);
   const windStrength = useGameStore((s) => s.windStrength);
+  const restartHole = useGameStore((s) => s.restartHole);
+  const muted = useGameStore((s) => s.muted);
+  const toggleMuted = useGameStore((s) => s.toggleMuted);
 
   const [toastText, setToastText] = useState<string | null>(null);
   const [toastVisible, setToastVisible] = useState(false);
@@ -116,24 +120,93 @@ export function Hud({ hole, holeNumber, totalHoles }: HudProps): JSX.Element {
         </div>
       </div>
 
-      {/* Back to menu */}
-      <button
-        type="button"
-        onClick={goToMenu}
-        aria-label="Späť do menu"
-        title="Späť do menu"
-        className="pointer-events-auto absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-slate-950/50 text-white/60 shadow-lg backdrop-blur-xl transition hover:bg-slate-900/70 hover:text-white sm:right-5 sm:top-5"
-      >
-        <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
-          <path
-            d="M15 6l-6 6 6 6"
-            stroke="currentColor"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </button>
+      {/* Top-right action cluster: mute, restart hole, back to menu */}
+      <div className="pointer-events-auto absolute right-4 top-4 z-20 flex items-center gap-2 sm:right-5 sm:top-5">
+        <button
+          type="button"
+          onClick={() => {
+            toggleMuted();
+            // zustand's set() is synchronous, so by now the store already
+            // reflects the new muted state — playUiClick() will only
+            // actually be heard when this toggle just turned sound on.
+            playUiClick();
+          }}
+          aria-label={muted ? "Zapnúť zvuk" : "Stlmiť zvuk"}
+          title={muted ? "Zapnúť zvuk" : "Stlmiť zvuk"}
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-slate-950/50 text-white/60 shadow-lg backdrop-blur-xl transition hover:bg-slate-900/70 hover:text-white"
+        >
+          {muted ? (
+            <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
+              <path
+                d="M11 5 6 9H3v6h3l5 4V5Z"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path d="M17 9l5 6M22 9l-5 6" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
+              <path
+                d="M11 5 6 9H3v6h3l5 4V5Z"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+              />
+            </svg>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            playUiClick();
+            restartHole();
+          }}
+          aria-label="Reštartovať jamku"
+          title="Reštartovať jamku"
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-slate-950/50 text-white/60 shadow-lg backdrop-blur-xl transition hover:bg-slate-900/70 hover:text-white"
+        >
+          <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
+            <path
+              d="M4 4v5h5M20 20v-5h-5M19.5 9A7.5 7.5 0 0 0 6.2 6.2M4.5 15a7.5 7.5 0 0 0 13.3 2.8"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            playUiClick();
+            goToMenu();
+          }}
+          aria-label="Späť do menu"
+          title="Späť do menu"
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-slate-950/50 text-white/60 shadow-lg backdrop-blur-xl transition hover:bg-slate-900/70 hover:text-white"
+        >
+          <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
+            <path
+              d="M15 6l-6 6 6 6"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
 
       {/* Toast (e.g. penalty messages) */}
       {toastText && (
@@ -175,7 +248,10 @@ export function Hud({ hole, holeNumber, totalHoles }: HudProps): JSX.Element {
           <button
             key={mode}
             type="button"
-            onClick={() => setLoft(mode)}
+            onClick={() => {
+              if (mode !== loft) playUiClick();
+              setLoft(mode);
+            }}
             className={`rounded-full px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide transition sm:text-xs ${
               loft === mode
                 ? "bg-gradient-to-r from-emerald-500 to-sky-500 text-white shadow"

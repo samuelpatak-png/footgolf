@@ -1,5 +1,6 @@
 "use client";
 
+import { playUiClick } from "../lib/audio";
 import { useGameStore } from "../lib/store";
 
 interface HoleCompleteOverlayProps {
@@ -77,7 +78,10 @@ export function HoleCompleteOverlay({ onContinue }: HoleCompleteOverlayProps): J
 
         <button
           type="button"
-          onClick={onContinue}
+          onClick={() => {
+            playUiClick();
+            onContinue();
+          }}
           className="mt-7 w-full rounded-full bg-gradient-to-r from-emerald-500 via-emerald-400 to-sky-400 py-3 text-base font-extrabold uppercase tracking-wide text-emerald-950 shadow-lg shadow-emerald-500/30 transition hover:brightness-110 active:scale-[0.98]"
         >
           Pokračovať

@@ -46,6 +46,24 @@ interface GameState {
   windAngle: number;
   windStrength: number;
   rollWind: () => void;
+
+  /** Bumped by restartHole(); folded into Course's React `key` to force a full remount. */
+  holeAttempt: number;
+  restartHole: () => void;
+
+  muted: boolean;
+  toggleMuted: () => void;
+}
+
+const MUTE_STORAGE_KEY = "footgolf-muted";
+
+function readInitialMuted(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(MUTE_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -68,6 +86,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   windAngle: 0,
   windStrength: 0,
 
+  holeAttempt: 0,
+  muted: readInitialMuted(),
+
   startGame: () =>
     set({
       phase: "playing",
@@ -77,6 +98,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       canShoot: false,
       isBallMoving: false,
       toast: null,
+      holeAttempt: 0,
     }),
 
   goToMenu: () => set({ phase: "menu" }),
@@ -90,6 +112,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       canShoot: false,
       isBallMoving: false,
       toast: null,
+      holeAttempt: 0,
     }),
 
   addStroke: () => set((s) => ({ strokes: s.strokes + 1 })),
@@ -120,6 +143,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         canShoot: false,
         isBallMoving: false,
         toast: null,
+        holeAttempt: 0,
       });
     }
   },
@@ -129,5 +153,25 @@ export const useGameStore = create<GameState>((set, get) => ({
       windAngle: Math.random() * Math.PI * 2,
       // Skewed toward calmer wind (sqrt) so a strong gust is a notable event, not the norm.
       windStrength: Math.sqrt(Math.random()),
+    }),
+
+  restartHole: () =>
+    set((s) => ({
+      strokes: 0,
+      canShoot: false,
+      isBallMoving: false,
+      toast: null,
+      holeAttempt: s.holeAttempt + 1,
+    })),
+
+  toggleMuted: () =>
+    set((s) => {
+      const next = !s.muted;
+      try {
+        window.localStorage.setItem(MUTE_STORAGE_KEY, next ? "1" : "0");
+      } catch {
+        // Private browsing / storage disabled — mute still works for this session.
+      }
+      return { muted: next };
     }),
 }));

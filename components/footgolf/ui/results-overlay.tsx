@@ -1,5 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
+import { playUiClick } from "../lib/audio";
+import { saveBestTotal } from "../lib/scores";
 import { useGameStore } from "../lib/store";
 
 interface ResultsOverlayProps {
@@ -28,6 +32,15 @@ export function ResultsOverlay({ onRestart }: ResultsOverlayProps): JSX.Element 
   const totalStrokes = results.reduce((sum, r) => sum + r.strokes, 0);
   const totalDiff = totalStrokes - totalPar;
 
+  const [isNewBest, setIsNewBest] = useState(false);
+
+  useEffect(() => {
+    if (results.length === 0) return;
+    setIsNewBest(saveBestTotal(totalStrokes));
+    // Only re-evaluate when a fresh set of results lands (i.e. a round just finished).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [results]);
+
   return (
     <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
       <div className="pointer-events-auto w-full max-w-lg rounded-[2rem] border border-white/15 bg-slate-950/75 p-6 shadow-2xl shadow-black/40 backdrop-blur-2xl sm:p-8">
@@ -39,6 +52,12 @@ export function ResultsOverlay({ onRestart }: ResultsOverlayProps): JSX.Element 
             Kolo dokončené
           </p>
           <h2 className="mt-1 text-3xl font-black text-white">Výsledková listina</h2>
+
+          {isNewBest && (
+            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-amber-300/40 bg-amber-400/15 px-3.5 py-1.5 text-xs font-extrabold uppercase tracking-wide text-amber-200">
+              🏆 Nové osobné maximum!
+            </div>
+          )}
 
           <div className="mt-5 inline-flex items-center gap-6 rounded-2xl border border-white/10 bg-white/5 px-6 py-3">
             <div>
@@ -102,7 +121,10 @@ export function ResultsOverlay({ onRestart }: ResultsOverlayProps): JSX.Element 
 
         <button
           type="button"
-          onClick={onRestart}
+          onClick={() => {
+            playUiClick();
+            onRestart();
+          }}
           className="mt-7 w-full rounded-full bg-gradient-to-r from-emerald-500 via-emerald-400 to-sky-400 py-3.5 text-base font-extrabold uppercase tracking-wide text-emerald-950 shadow-lg shadow-emerald-500/30 transition hover:brightness-110 active:scale-[0.98]"
         >
           Hrať znova

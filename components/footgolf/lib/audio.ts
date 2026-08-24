@@ -13,7 +13,13 @@
  * unavailable or still locked.
  */
 
+import { useGameStore } from "./store";
+
 type AudioContextCtor = typeof AudioContext;
+
+function isMuted(): boolean {
+  return useGameStore.getState().muted;
+}
 
 /** Lazily-created singleton context, shared by every sound in this module. */
 let sharedContext: AudioContext | null = null;
@@ -86,7 +92,7 @@ export function initAudio(): void {
  * loudness and punchiness so harder kicks sound bigger.
  */
 export function playKick(power: number): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || isMuted()) return;
   const ctx = ensurePlayable();
   if (!ctx) return;
 
@@ -119,7 +125,7 @@ export function playKick(power: number): void {
  * `intensity` (roughly 0..1) scales loudness and pitch drop.
  */
 export function playBounce(intensity: number): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || isMuted()) return;
   const ctx = ensurePlayable();
   if (!ctx) return;
 
@@ -153,7 +159,7 @@ export function playBounce(intensity: number): void {
  * gain envelope.
  */
 export function playSplash(): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || isMuted()) return;
   const ctx = ensurePlayable();
   if (!ctx) return;
 
@@ -199,7 +205,7 @@ export function playSplash(): void {
  * ball drops into the cup — a small "success" jingle.
  */
 export function playHoleIn(): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || isMuted()) return;
   const ctx = ensurePlayable();
   if (!ctx) return;
 
@@ -235,7 +241,7 @@ export function playHoleIn(): void {
  * Very short, subtle high click for UI button feedback.
  */
 export function playUiClick(): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || isMuted()) return;
   const ctx = ensurePlayable();
   if (!ctx) return;
 

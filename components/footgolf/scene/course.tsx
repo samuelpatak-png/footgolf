@@ -9,6 +9,7 @@ import { Terrain, buildHeightSampler } from "./terrain";
 import { Ball, BALL_RADIUS } from "./ball";
 import { CameraRig } from "./camera-rig";
 import { AimIndicator } from "./aim-indicator";
+import { TrajectoryPreview } from "./trajectory-preview";
 import { AimController } from "../controls/aim-controller";
 import { Water } from "./water";
 import { PropsField } from "./props";
@@ -17,7 +18,8 @@ import { SkyEnvironment } from "./sky-environment";
 import { ParticleField, type BurstSpec, type BurstType } from "./particles";
 import { isInWaterHazard, surfaceAt, SURFACE_DAMPING } from "../lib/surface-map";
 import { useGameStore, type LoftMode } from "../lib/store";
-import { playHoleIn, playKick, playSplash } from "../lib/audio";
+import { playBounce, playHoleIn, playKick, playSplash } from "../lib/audio";
+import { saveBestForHole } from "../lib/scores";
 import type { HoleDefinition } from "../lib/types";
 
 const SETTLE_SPEED = 0.22;
@@ -29,13 +31,13 @@ const SETTLE_FRAMES_REQUIRED = 20;
 // rather than risk soft-locking the game.
 const FORCE_SETTLE_FRAMES = 240;
 const FORCE_SETTLE_SPEED = 1.2;
-const MIN_KICK_SPEED = 3.2;
+export const MIN_KICK_SPEED = 3.2;
 // Kept well under ~13 m/s: past that, a fast sphere sweeping across many
 // triangles of the ground trimesh per physics step occasionally picks up a
 // spurious sideways deflection (confirmed by comparing moderate- vs high-
 // power kicks — moderate ones track dead straight, only strong ones drifted).
-const MAX_KICK_SPEED = 11;
-const LOFT_ANGLES: Record<LoftMode, number> = { low: 0.14, normal: 0.32, high: 0.58 };
+export const MAX_KICK_SPEED = 11;
+export const LOFT_ANGLES: Record<LoftMode, number> = { low: 0.14, normal: 0.32, high: 0.58 };
 // Newtons at windStrength=1, only applied while the ball is airborne — a
 // gentle push over a ~1s flight, not something that should ever feel unfair.
 const WIND_FORCE = 0.55;
@@ -140,7 +142,9 @@ export function Course({ hole }: CourseProps) {
       body.setAngularDamping(damping * 0.5);
 
       if (!wasGroundedRef.current && Math.sqrt(speed2) > LANDING_DUST_MIN_SPEED) {
+        const landingSpeed = Math.sqrt(speed2);
         spawnBurst("dust", [t.x, groundY + 0.03, t.z]);
+        playBounce(Math.min(1, landingSpeed / 8));
       }
     } else {
       body.setLinearDamping(0.05);
@@ -184,6 +188,7 @@ export function Course({ hole }: CourseProps) {
       body.setAngvel({ x: 0, y: 0, z: 0 }, true);
       body.setTranslation({ x: hole.pin[0], y: groundY - 0.18, z: hole.pin[1] }, true);
       playHoleIn();
+      saveBestForHole(hole.id, useGameStore.getState().strokes);
       useGameStore.getState().setBallMoving(false);
       useGameStore.getState().setCanShoot(false);
       window.setTimeout(() => {
@@ -225,6 +230,13 @@ export function Course({ hole }: CourseProps) {
       <Ball ref={ballRef} startPosition={startPosition} />
       <CameraRig ballRef={ballRef} heightAt={heightAt} initialYaw={hole.startYaw} />
       <AimIndicator ballRef={ballRef} heightAt={heightAt} />
+      <TrajectoryPreview
+        ballRef={ballRef}
+        heightAt={heightAt}
+        minSpeed={MIN_KICK_SPEED}
+        maxSpeed={MAX_KICK_SPEED}
+        loftAngles={LOFT_ANGLES}
+      />
       <AimController enabled={phase === "playing" && canShoot} baseYaw={hole.startYaw} onKick={handleKick} />
       <ParticleField bursts={bursts} onBurstDone={removeBurst} />
     </>

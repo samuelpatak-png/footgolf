@@ -16,6 +16,7 @@ import { ResultsOverlay } from "./ui/results-overlay";
 export default function FootgolfGame() {
   const phase = useGameStore((s) => s.phase);
   const holeIndex = useGameStore((s) => s.holeIndex);
+  const holeAttempt = useGameStore((s) => s.holeAttempt);
   const advanceHole = useGameStore((s) => s.advanceHole);
   const restart = useGameStore((s) => s.restart);
 
@@ -36,7 +37,7 @@ export default function FootgolfGame() {
       >
         <Physics gravity={[0, -9.81, 0]}>
           <Suspense fallback={null}>
-            <Course key={hole.id} hole={hole} />
+            <Course key={`${hole.id}-${holeAttempt}`} hole={hole} />
           </Suspense>
         </Physics>
       </Canvas>
